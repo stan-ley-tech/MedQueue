@@ -24,7 +24,6 @@ const (
 	CodeRateLimited         Code = "RATE_LIMITED"
 	CodeIdempotencyConflict Code = "IDEMPOTENCY_KEY_REUSED"
 	CodeInternal            Code = "INTERNAL_ERROR"
-	CodeUnavailable         Code = "SERVICE_UNAVAILABLE"
 )
 
 // Error is the canonical application error. It carries an HTTP status,
@@ -99,8 +98,10 @@ func Internal(cause error) *Error {
 	return (&Error{Status: http.StatusInternalServerError, Code: CodeInternal, Message: "an unexpected error occurred"}).WithCause(cause)
 }
 
-func Unavailable(message string) *Error {
-	return New(http.StatusServiceUnavailable, CodeUnavailable, message)
+// IdempotencyInProgress is returned when a request reuses an
+// Idempotency-Key whose original request is still being processed.
+func IdempotencyInProgress() *Error {
+	return New(http.StatusConflict, CodeIdempotencyConflict, "a request with this idempotency key is still in progress")
 }
 
 // As extracts an *Error from err, if present in its chain.

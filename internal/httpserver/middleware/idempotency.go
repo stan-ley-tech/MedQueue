@@ -49,7 +49,7 @@ func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.
 			}
 			if found {
 				if statusCode == 0 {
-					httpserver.WriteError(w, r, apperr.Conflict("a request with this idempotency key is still in progress"))
+					httpserver.WriteError(w, r, apperr.IdempotencyInProgress())
 					return
 				}
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
