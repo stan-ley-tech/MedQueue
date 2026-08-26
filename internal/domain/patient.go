@@ -6,14 +6,14 @@ type Patient struct {
 	ID                  string
 	MedicalRecordNumber string
 	FirstName           string
-	LastName             string
-	DateOfBirth          time.Time
-	Sex                  string
-	Phone                string
-	Email                string
-	Address              string
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	LastName            string
+	DateOfBirth         time.Time
+	Sex                 string
+	Phone               string
+	Email               string
+	Address             string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (p Patient) FullName() string {

@@ -113,6 +113,22 @@ func (r *QueuePG) UpdateStatus(ctx context.Context, id string, status domain.Que
 	return nil
 }
 
+func (r *QueuePG) Requeue(ctx context.Context, id string) error {
+	cmd, err := r.pool.Querier(ctx).Exec(ctx, `
+		UPDATE queue_entries
+		SET status = 'waiting', doctor_id = NULL, called_at = NULL, checked_in_at = now(), updated_at = now()
+		WHERE id = $1 AND status = 'called'`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("queue_pg: requeue: %w", err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return apperr.Conflict("only a called entry can be returned to the queue")
+	}
+	return nil
+}
+
 func (r *QueuePG) ListWaiting(ctx context.Context, departmentID string) ([]domain.QueueEntry, error) {
 	rows, err := r.pool.Querier(ctx).Query(ctx, `
 		SELECT q.id, q.appointment_id, q.patient_id, q.department_id, q.doctor_id, q.priority, q.status,

@@ -66,6 +66,9 @@ type QueueRepository interface {
 	// have effect across concurrent callers.
 	CallNext(ctx context.Context, departmentID string, doctorID *string) (*domain.QueueEntry, error)
 	UpdateStatus(ctx context.Context, id string, status domain.QueueEntryStatus) error
+	// Requeue returns a called-but-unresponsive entry to the waiting pool
+	// at the back of its priority band by bumping checked_in_at to now.
+	Requeue(ctx context.Context, id string) error
 	ListWaiting(ctx context.Context, departmentID string) ([]domain.QueueEntry, error)
 	CountWaiting(ctx context.Context, departmentID string) (int, error)
 }

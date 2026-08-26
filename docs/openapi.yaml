@@ -1,0 +1,852 @@
+openapi: 3.0.3
+info:
+  title: MedQueue API
+  description: >
+    Backend API for managing patient appointments and real-time clinic
+    queues. Covers patient/doctor/department management, appointment
+    scheduling, check-in, priority queueing, and the clinician
+    call-next-patient workflow.
+  version: "1.0.0"
+  contact:
+    name: MedQueue
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Auth
+  - name: Departments
+  - name: Doctors
+  - name: Patients
+  - name: Appointments
+  - name: Queue
+  - name: Audit
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a staff account (admin only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange credentials for an access/refresh token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate a refresh token for a new session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: No Content }
+
+  /departments:
+    get:
+      tags: [Departments]
+      summary: List departments
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DepartmentPage' }
+    post:
+      tags: [Departments]
+      summary: Create a department (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDepartmentRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Department' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /departments/{id}:
+    get:
+      tags: [Departments]
+      summary: Get a department
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Department' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Departments]
+      summary: Update a department (admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDepartmentRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Department' }
+
+  /departments/{id}/queue:
+    get:
+      tags: [Queue]
+      summary: Get the current waiting line for a department
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueSnapshot' }
+
+  /departments/{id}/queue/call-next:
+    post:
+      tags: [Queue]
+      summary: Call the next waiting patient (clinician/admin only)
+      description: >
+        Atomically claims the highest-priority, longest-waiting patient in
+        the department using SELECT ... FOR UPDATE SKIP LOCKED, so
+        concurrent calls from multiple clinicians never claim the same
+        patient. Returns a message instead of an entry if the queue is
+        empty.
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /doctors:
+    get:
+      tags: [Doctors]
+      summary: List doctors
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - name: department_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: active
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DoctorPage' }
+    post:
+      tags: [Doctors]
+      summary: Create a doctor (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateDoctorRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Doctor' }
+
+  /doctors/{id}:
+    get:
+      tags: [Doctors]
+      summary: Get a doctor
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Doctor' }
+    put:
+      tags: [Doctors]
+      summary: Update a doctor (admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateDoctorRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Doctor' }
+
+  /patients:
+    get:
+      tags: [Patients]
+      summary: List/search patients
+      parameters:
+        - { $ref: '#/components/parameters/Search' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PatientPage' }
+    post:
+      tags: [Patients]
+      summary: Register a patient (front desk/admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePatientRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+
+  /patients/{id}:
+    get:
+      tags: [Patients]
+      summary: Get a patient
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+    put:
+      tags: [Patients]
+      summary: Update a patient (front desk/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePatientRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: List/filter appointments
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - name: patient_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: doctor_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: department_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/AppointmentStatus' }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentPage' }
+    post:
+      tags: [Appointments]
+      summary: Schedule an appointment (front desk/admin only)
+      description: >
+        Supports the Idempotency-Key header: retried requests with the
+        same key replay the original response instead of double-booking.
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleAppointmentRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /appointments/{id}:
+    get:
+      tags: [Appointments]
+      summary: Get an appointment
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+    put:
+      tags: [Appointments]
+      summary: Reschedule an appointment (front desk/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RescheduleAppointmentRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+
+  /appointments/{id}/cancel:
+    post:
+      tags: [Appointments]
+      summary: Cancel an appointment (front desk/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '204': { description: No Content }
+
+  /appointments/{id}/no-show:
+    post:
+      tags: [Appointments]
+      summary: Mark an appointment as a no-show (front desk/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '204': { description: No Content }
+
+  /appointments/{id}/check-in:
+    post:
+      tags: [Queue]
+      summary: Check in a patient and enqueue them (front desk/admin only)
+      description: >
+        Transitions the appointment scheduled -> checked_in -> in_queue
+        and creates a queue entry. Supports the Idempotency-Key header so
+        a retried check-in doesn't double-enqueue the patient.
+      parameters:
+        - { $ref: '#/components/parameters/ID' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckInRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /queue/{id}/start:
+    post:
+      tags: [Queue]
+      summary: Start a consultation (clinician/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /queue/{id}/complete:
+    post:
+      tags: [Queue]
+      summary: Complete a consultation (clinician/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompleteConsultationRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /queue/{id}/requeue:
+    post:
+      tags: [Queue]
+      summary: Return an unresponsive called patient to the queue (clinician/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /queue/{id}/no-show:
+    post:
+      tags: [Queue]
+      summary: Drop an unresponsive patient from the queue (clinician/admin only)
+      parameters: [{ $ref: '#/components/parameters/ID' }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueEntry' }
+
+  /ws/departments/{id}/queue:
+    get:
+      tags: [Queue]
+      summary: WebSocket stream of real-time queue events for a department
+      description: >
+        Upgrade to a WebSocket connection. Since browsers cannot set
+        request headers on the WebSocket handshake, pass the access token
+        as `?token=<jwt>`. Each message is a QueueEvent.
+      parameters:
+        - { $ref: '#/components/parameters/ID' }
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '101': { description: Switching Protocols }
+
+  /audit-logs:
+    get:
+      tags: [Audit]
+      summary: List audit log entries (admin only)
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Offset' }
+        - name: entity_type
+          in: query
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          schema: { type: string }
+        - name: actor_id
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditLogPage' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 20, maximum: 100 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, default: 0 }
+    Search:
+      name: search
+      in: query
+      schema: { type: string }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string }
+      description: Client-generated key that makes a write safely retryable.
+
+  responses:
+    ValidationError:
+      description: Request failed validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Authenticated but not permitted
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Request conflicts with current state
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string, example: VALIDATION_ERROR }
+        message: { type: string }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+
+    AppointmentStatus:
+      type: string
+      enum: [scheduled, checked_in, in_queue, in_consultation, completed, cancelled, no_show]
+
+    QueuePriority:
+      type: integer
+      enum: [0, 1, 2]
+      description: 0 = normal, 1 = urgent, 2 = emergency
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name, role]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        name: { type: string }
+        role: { type: string, enum: [admin, front_desk, clinician] }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        role: { type: string }
+
+    Session:
+      type: object
+      properties:
+        access_token: { type: string }
+        access_token_expires_at: { type: string, format: date-time }
+        refresh_token: { type: string }
+        refresh_token_expires_at: { type: string, format: date-time }
+        user: { $ref: '#/components/schemas/User' }
+
+    CreateDepartmentRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        description: { type: string }
+
+    UpdateDepartmentRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateDepartmentRequest'
+        - type: object
+          properties:
+            active: { type: boolean }
+
+    Department:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    DepartmentPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Department' }
+
+    CreateDoctorRequest:
+      type: object
+      required: [name, department_id]
+      properties:
+        name: { type: string }
+        specialty: { type: string }
+        department_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+
+    UpdateDoctorRequest:
+      type: object
+      required: [name, department_id]
+      properties:
+        name: { type: string }
+        specialty: { type: string }
+        department_id: { type: string, format: uuid }
+        active: { type: boolean }
+
+    Doctor:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid, nullable: true }
+        name: { type: string }
+        specialty: { type: string }
+        department_id: { type: string, format: uuid }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    DoctorPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Doctor' }
+
+    CreatePatientRequest:
+      type: object
+      required: [medical_record_number, first_name, last_name, date_of_birth]
+      properties:
+        medical_record_number: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        date_of_birth: { type: string, format: date }
+        sex: { type: string, enum: [male, female, other, unspecified] }
+        phone: { type: string }
+        email: { type: string, format: email }
+        address: { type: string }
+
+    UpdatePatientRequest:
+      type: object
+      required: [first_name, last_name, date_of_birth]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        date_of_birth: { type: string, format: date }
+        sex: { type: string }
+        phone: { type: string }
+        email: { type: string, format: email }
+        address: { type: string }
+
+    Patient:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        medical_record_number: { type: string }
+        first_name: { type: string }
+        last_name: { type: string }
+        date_of_birth: { type: string, format: date }
+        sex: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    PatientPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Patient' }
+
+    ScheduleAppointmentRequest:
+      type: object
+      required: [patient_id, doctor_id, department_id, scheduled_at]
+      properties:
+        patient_id: { type: string, format: uuid }
+        doctor_id: { type: string, format: uuid }
+        department_id: { type: string, format: uuid }
+        scheduled_at: { type: string, format: date-time }
+        reason: { type: string }
+
+    RescheduleAppointmentRequest:
+      type: object
+      required: [scheduled_at]
+      properties:
+        scheduled_at: { type: string, format: date-time }
+
+    Appointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        doctor_id: { type: string, format: uuid }
+        doctor_name: { type: string }
+        department_id: { type: string, format: uuid }
+        scheduled_at: { type: string, format: date-time }
+        status: { $ref: '#/components/schemas/AppointmentStatus' }
+        reason: { type: string }
+        notes: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AppointmentPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/Appointment' }
+
+    CheckInRequest:
+      type: object
+      properties:
+        priority: { $ref: '#/components/schemas/QueuePriority' }
+
+    CompleteConsultationRequest:
+      type: object
+      properties:
+        notes: { type: string }
+
+    QueueEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        appointment_id: { type: string, format: uuid }
+        patient_id: { type: string, format: uuid }
+        patient_name: { type: string }
+        department_id: { type: string, format: uuid }
+        doctor_id: { type: string, format: uuid, nullable: true }
+        priority: { $ref: '#/components/schemas/QueuePriority' }
+        status: { type: string, enum: [waiting, called, in_progress, completed, skipped] }
+        queue_number: { type: integer }
+        checked_in_at: { type: string, format: date-time }
+        called_at: { type: string, format: date-time, nullable: true }
+        started_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+
+    QueueSnapshot:
+      type: object
+      properties:
+        department_id: { type: string, format: uuid }
+        waiting:
+          type: array
+          items: { $ref: '#/components/schemas/QueueEntry' }
+        generated_at: { type: string, format: date-time }
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: string }
+        actor_role: { type: string }
+        action: { type: string }
+        entity_type: { type: string }
+        entity_id: { type: string }
+        metadata: { type: object }
+        created_at: { type: string, format: date-time }
+
+    AuditLogPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/AuditLog' }
+
+    Page:
+      type: object
+      properties:
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }

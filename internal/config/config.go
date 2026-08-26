@@ -16,10 +16,10 @@ type Config struct {
 	HTTPPort        string
 	ShutdownTimeout time.Duration
 
-	DatabaseURL          string
-	DBMaxOpenConns       int
-	DBMaxIdleConns       int
-	DBConnMaxLifetime    time.Duration
+	DatabaseURL       string
+	DBMaxOpenConns    int
+	DBMaxIdleConns    int
+	DBConnMaxLifetime time.Duration
 
 	RedisAddr     string
 	RedisPassword string
@@ -36,8 +36,10 @@ type Config struct {
 	LogLevel  string
 	LogFormat string
 
-	ReminderScanInterval    time.Duration
-	ReminderLookahead       time.Duration
+	ReminderScanInterval time.Duration
+	ReminderLookahead    time.Duration
+
+	AppointmentSlotDuration time.Duration
 
 	CORSAllowedOrigins []string
 }
@@ -75,6 +77,8 @@ func Load() (*Config, error) {
 
 		ReminderScanInterval: getEnvDuration("REMINDER_SCAN_INTERVAL_SECONDS", 60*time.Second, time.Second),
 		ReminderLookahead:    getEnvDuration("REMINDER_LOOKAHEAD_MINUTES", 60*time.Minute, time.Minute),
+
+		AppointmentSlotDuration: getEnvDuration("APPOINTMENT_SLOT_MINUTES", 15*time.Minute, time.Minute),
 
 		CORSAllowedOrigins: strings.Split(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000"), ","),
 	}

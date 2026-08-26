@@ -1,0 +1,19 @@
+// Package auth provides password hashing and JWT issuance/verification
+// used by the auth service and HTTP middleware.
+package auth
+
+import "golang.org/x/crypto/bcrypt"
+
+const bcryptCost = 12
+
+func HashPassword(plain string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcryptCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func VerifyPassword(hash, plain string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
+}

@@ -11,13 +11,13 @@ import (
 type AppointmentStatus string
 
 const (
-	AppointmentScheduled    AppointmentStatus = "scheduled"
-	AppointmentCheckedIn    AppointmentStatus = "checked_in"
-	AppointmentInQueue      AppointmentStatus = "in_queue"
-	AppointmentInConsult    AppointmentStatus = "in_consultation"
-	AppointmentCompleted    AppointmentStatus = "completed"
-	AppointmentCancelled    AppointmentStatus = "cancelled"
-	AppointmentNoShow       AppointmentStatus = "no_show"
+	AppointmentScheduled AppointmentStatus = "scheduled"
+	AppointmentCheckedIn AppointmentStatus = "checked_in"
+	AppointmentInQueue   AppointmentStatus = "in_queue"
+	AppointmentInConsult AppointmentStatus = "in_consultation"
+	AppointmentCompleted AppointmentStatus = "completed"
+	AppointmentCancelled AppointmentStatus = "cancelled"
+	AppointmentNoShow    AppointmentStatus = "no_show"
 )
 
 // validTransitions enumerates the directed edges of the appointment state
@@ -25,7 +25,7 @@ const (
 var validTransitions = map[AppointmentStatus][]AppointmentStatus{
 	AppointmentScheduled: {AppointmentCheckedIn, AppointmentCancelled, AppointmentNoShow},
 	AppointmentCheckedIn: {AppointmentInQueue, AppointmentCancelled},
-	AppointmentInQueue:   {AppointmentInConsult, AppointmentCancelled},
+	AppointmentInQueue:   {AppointmentInConsult, AppointmentCancelled, AppointmentNoShow},
 	AppointmentInConsult: {AppointmentCompleted},
 	AppointmentCompleted: {},
 	AppointmentCancelled: {},
@@ -47,16 +47,16 @@ func (s AppointmentStatus) Valid() bool {
 }
 
 type Appointment struct {
-	ID             string
-	PatientID      string
-	DoctorID       string
-	DepartmentID   string
-	ScheduledAt    time.Time
-	Status         AppointmentStatus
-	Reason         string
-	Notes          string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID           string
+	PatientID    string
+	DoctorID     string
+	DepartmentID string
+	ScheduledAt  time.Time
+	Status       AppointmentStatus
+	Reason       string
+	Notes        string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 
 	// Populated on read-heavy endpoints via joins; empty on writes.
 	PatientName string

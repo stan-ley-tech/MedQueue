@@ -16,15 +16,15 @@ import (
 type Code string
 
 const (
-	CodeValidation      Code = "VALIDATION_ERROR"
-	CodeNotFound        Code = "NOT_FOUND"
-	CodeConflict        Code = "CONFLICT"
-	CodeUnauthorized    Code = "UNAUTHORIZED"
-	CodeForbidden       Code = "FORBIDDEN"
-	CodeRateLimited     Code = "RATE_LIMITED"
+	CodeValidation          Code = "VALIDATION_ERROR"
+	CodeNotFound            Code = "NOT_FOUND"
+	CodeConflict            Code = "CONFLICT"
+	CodeUnauthorized        Code = "UNAUTHORIZED"
+	CodeForbidden           Code = "FORBIDDEN"
+	CodeRateLimited         Code = "RATE_LIMITED"
 	CodeIdempotencyConflict Code = "IDEMPOTENCY_KEY_REUSED"
-	CodeInternal        Code = "INTERNAL_ERROR"
-	CodeUnavailable     Code = "SERVICE_UNAVAILABLE"
+	CodeInternal            Code = "INTERNAL_ERROR"
+	CodeUnavailable         Code = "SERVICE_UNAVAILABLE"
 )
 
 // Error is the canonical application error. It carries an HTTP status,

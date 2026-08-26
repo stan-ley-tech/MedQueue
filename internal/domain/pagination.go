@@ -27,8 +27,8 @@ func (p *Page) NormalizeDefaults() {
 // PagedResult wraps a page of items with the metadata clients need to
 // fetch subsequent pages.
 type PagedResult[T any] struct {
-	Items      []T `json:"items"`
-	Total      int `json:"total"`
-	Limit      int `json:"limit"`
-	Offset     int `json:"offset"`
+	Items  []T `json:"items"`
+	Total  int `json:"total"`
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
 }
