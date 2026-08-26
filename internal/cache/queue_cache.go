@@ -28,25 +28,6 @@ func NewQueueCache(client *Client) *QueueCache {
 
 const eventsChannelPattern = "queue:%s:events"
 
-// QueueEvent is the payload broadcast over Redis pub/sub and, from there,
-// over WebSocket to connected dashboards and display boards.
-type QueueEvent struct {
-	Type         string             `json:"type"`
-	DepartmentID string             `json:"department_id"`
-	Entry        *domain.QueueEntry `json:"entry,omitempty"`
-	WaitingCount int                `json:"waiting_count"`
-	OccurredAt   time.Time          `json:"occurred_at"`
-}
-
-const (
-	EventPatientCheckedIn = "patient_checked_in"
-	EventPatientCalled    = "patient_called"
-	EventConsultStarted   = "consultation_started"
-	EventConsultCompleted = "consultation_completed"
-	EventPatientRequeued  = "patient_requeued"
-	EventPatientNoShow    = "patient_no_show"
-)
-
 func snapshotKey(departmentID string) string {
 	return fmt.Sprintf("queue:%s:snapshot", departmentID)
 }
@@ -85,7 +66,7 @@ func (c *QueueCache) InvalidateSnapshot(ctx context.Context, departmentID string
 	return nil
 }
 
-func (c *QueueCache) Publish(ctx context.Context, event QueueEvent) error {
+func (c *QueueCache) Publish(ctx context.Context, event domain.QueueEvent) error {
 	raw, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("queue_cache: marshal event: %w", err)

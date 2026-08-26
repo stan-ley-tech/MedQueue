@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/stan-ley-tech/medqueue/internal/cache"
+	"github.com/stan-ley-tech/medqueue/internal/domain"
 )
 
 type Hub struct {
@@ -73,7 +74,7 @@ func (h *Hub) Run(ctx context.Context) {
 			if !ok {
 				return
 			}
-			var event cache.QueueEvent
+			var event domain.QueueEvent
 			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
 				h.log.Error("ws: failed to unmarshal queue event", "error", err)
 				continue

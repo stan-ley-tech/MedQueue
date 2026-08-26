@@ -2,12 +2,15 @@
 -- supplied Idempotency-Key header, so a retried request (network blip,
 -- double-tap) replays the original response instead of double-booking
 -- an appointment or double check-in.
+-- response_body is BYTEA, not JSONB: it must replay byte-for-byte exactly
+-- what the client received the first time, and JSONB silently reformats
+-- (whitespace, key order) on storage, which would break that guarantee.
 CREATE TABLE idempotency_keys (
     key            TEXT PRIMARY KEY,
     request_path   TEXT NOT NULL,
     request_hash   TEXT NOT NULL,
     status_code    INTEGER,
-    response_body  JSONB,
+    response_body  BYTEA,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at     TIMESTAMPTZ NOT NULL
 );

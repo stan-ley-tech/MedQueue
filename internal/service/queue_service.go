@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/stan-ley-tech/medqueue/internal/apperr"
-	"github.com/stan-ley-tech/medqueue/internal/cache"
 	"github.com/stan-ley-tech/medqueue/internal/db"
 	"github.com/stan-ley-tech/medqueue/internal/domain"
 	"github.com/stan-ley-tech/medqueue/internal/repository"
@@ -22,12 +21,12 @@ type QueueService struct {
 	pool         *db.Pool
 	queue        repository.QueueRepository
 	appointments repository.AppointmentRepository
-	cache        *cache.QueueCache
+	cache        QueueCache
 	audit        *AuditService
 	log          *slog.Logger
 }
 
-func NewQueueService(pool *db.Pool, queue repository.QueueRepository, appointments repository.AppointmentRepository, qc *cache.QueueCache, audit *AuditService, log *slog.Logger) *QueueService {
+func NewQueueService(pool *db.Pool, queue repository.QueueRepository, appointments repository.AppointmentRepository, qc QueueCache, audit *AuditService, log *slog.Logger) *QueueService {
 	return &QueueService{pool: pool, queue: queue, appointments: appointments, cache: qc, audit: audit, log: log}
 }
 
@@ -72,7 +71,7 @@ func (s *QueueService) CheckIn(ctx context.Context, actor Actor, appointmentID s
 		return nil, err
 	}
 
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventPatientCheckedIn, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventPatientCheckedIn, entry)
 	return entry, nil
 }
 
@@ -105,7 +104,7 @@ func (s *QueueService) CallNext(ctx context.Context, actor Actor, departmentID s
 	s.audit.Record(ctx, actor.UserID, actor.Role, "queue.patient_called", "queue_entry", entry.ID, map[string]any{
 		"department_id": entry.DepartmentID, "appointment_id": entry.AppointmentID,
 	})
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventPatientCalled, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventPatientCalled, entry)
 	return entry, nil
 }
 
@@ -143,7 +142,7 @@ func (s *QueueService) StartConsultation(ctx context.Context, actor Actor, queue
 	}
 
 	s.audit.Record(ctx, actor.UserID, actor.Role, "queue.consultation_started", "queue_entry", entry.ID, nil)
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventConsultStarted, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventConsultStarted, entry)
 	return entry, nil
 }
 
@@ -187,7 +186,7 @@ func (s *QueueService) CompleteConsultation(ctx context.Context, actor Actor, qu
 	}
 
 	s.audit.Record(ctx, actor.UserID, actor.Role, "queue.consultation_completed", "queue_entry", entry.ID, nil)
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventConsultCompleted, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventConsultCompleted, entry)
 	return entry, nil
 }
 
@@ -214,7 +213,7 @@ func (s *QueueService) Requeue(ctx context.Context, actor Actor, queueEntryID st
 	}
 
 	s.audit.Record(ctx, actor.UserID, actor.Role, "queue.patient_requeued", "queue_entry", entry.ID, nil)
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventPatientRequeued, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventPatientRequeued, entry)
 	return entry, nil
 }
 
@@ -251,7 +250,7 @@ func (s *QueueService) MarkNoShow(ctx context.Context, actor Actor, queueEntryID
 	}
 
 	s.audit.Record(ctx, actor.UserID, actor.Role, "queue.patient_no_show", "queue_entry", entry.ID, nil)
-	s.publishAndInvalidate(ctx, entry.DepartmentID, cache.EventPatientNoShow, entry)
+	s.publishAndInvalidate(ctx, entry.DepartmentID, domain.EventPatientNoShow, entry)
 	return entry, nil
 }
 
@@ -287,7 +286,7 @@ func (s *QueueService) publishAndInvalidate(ctx context.Context, departmentID, e
 		s.log.Warn("failed to count waiting patients", "department_id", departmentID, "error", err)
 	}
 
-	event := cache.QueueEvent{
+	event := domain.QueueEvent{
 		Type:         eventType,
 		DepartmentID: departmentID,
 		Entry:        entry,

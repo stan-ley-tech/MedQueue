@@ -36,7 +36,7 @@ test-e2e:
 	go test ./tests/e2e/... -count=1 -tags=e2e
 
 test-load:
-	go test ./tests/load/... -count=1 -run TestQueueLoad -v
+	go test ./tests/load/... -count=1 -tags=load -run TestQueueLoad -v
 
 lint:
 	go vet ./...

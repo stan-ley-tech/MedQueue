@@ -67,3 +67,23 @@ type QueueSnapshot struct {
 	Waiting      []QueueEntry `json:"waiting"`
 	GeneratedAt  time.Time    `json:"generated_at"`
 }
+
+// QueueEvent is the payload broadcast over Redis pub/sub and, from there,
+// over WebSocket to connected dashboards and display boards, whenever a
+// queue entry changes state.
+type QueueEvent struct {
+	Type         string      `json:"type"`
+	DepartmentID string      `json:"department_id"`
+	Entry        *QueueEntry `json:"entry,omitempty"`
+	WaitingCount int         `json:"waiting_count"`
+	OccurredAt   time.Time   `json:"occurred_at"`
+}
+
+const (
+	EventPatientCheckedIn = "patient_checked_in"
+	EventPatientCalled    = "patient_called"
+	EventConsultStarted   = "consultation_started"
+	EventConsultCompleted = "consultation_completed"
+	EventPatientRequeued  = "patient_requeued"
+	EventPatientNoShow    = "patient_no_show"
+)
