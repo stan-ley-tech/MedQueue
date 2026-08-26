@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS doctors;
+DROP TABLE IF EXISTS departments;
